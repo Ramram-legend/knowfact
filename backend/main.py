@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from database import Base, engine, init_db
-from routes import auth, fiches, search, users
+from routes import auth, fiches, search, users, departments
 
 # ---------------------------------------------------------------------------
 # Create all database tables on startup & ensure schema migrations
@@ -64,6 +64,7 @@ app.include_router(auth.router)
 app.include_router(fiches.router)
 app.include_router(search.router)
 app.include_router(users.router)
+app.include_router(departments.router)
 
 
 # ---------------------------------------------------------------------------

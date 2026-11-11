@@ -60,6 +60,8 @@ class UserOut(OrmBase):
     role: UserRole
     is_active: bool
     created_at: datetime
+    primary_department_id: Optional[int] = None
+    primary_workstation_id: Optional[int] = None
 
 
 class UserRoleUpdate(BaseModel):
@@ -93,6 +95,8 @@ class FicheCreate(BaseModel):
     type: FicheType
     content: FicheContent
     review_due_date: Optional[datetime] = None
+    department_id: Optional[int] = None
+    workstation_id: Optional[int] = None
 
 
 class FicheUpdate(BaseModel):
@@ -191,6 +195,8 @@ class FicheOut(OrmBase):
     review_due_date: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    department_id: Optional[int] = None
+    workstation_id: Optional[int] = None
     author: Optional[UserOut] = None
     versions: list[FicheVersionOut] = []
     attachments: list[AttachmentOut] = []
@@ -229,6 +235,8 @@ class FicheListOut(OrmBase):
     review_due_date: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    department_id: Optional[int] = None
+    workstation_id: Optional[int] = None
     author: Optional[UserOut] = None
     author_name: str = ""
     reviewer_name: Optional[str] = None
@@ -340,6 +348,130 @@ class ImprovementProposalOut(OrmBase):
     updated_at: datetime
     latest_review_comment: Optional[str] = None
     reviews: list[VersionReviewOut] = []
+
+
+# ---------------------------------------------------------------------------
+# Generic message
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Department / Workstation / UserDepartment schemas
+# ---------------------------------------------------------------------------
+
+
+class WorkstationOut(OrmBase):
+    id: int
+    department_id: int
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool
+    display_order: int
+    created_at: datetime
+
+
+class WorkstationCreate(BaseModel):
+    name: str
+    code: Optional[str] = None
+    description: Optional[str] = None
+    display_order: int = 0
+
+
+class WorkstationUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class DepartmentOut(OrmBase):
+    id: int
+    name: str
+    code: str
+    description: Optional[str] = None
+    color: str
+    icon: str
+    manager_id: Optional[int] = None
+    is_active: bool
+    display_order: int
+    created_at: datetime
+    manager: Optional[UserOut] = None
+    workstations: list[WorkstationOut] = []
+    member_count: int = 0
+
+
+class DepartmentCreate(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    color: str = "#0d9488"
+    icon: str = "Factory"
+    manager_id: Optional[int] = None
+    display_order: int = 0
+
+
+class DepartmentUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    manager_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    display_order: Optional[int] = None
+
+
+class UserDepartmentOut(OrmBase):
+    id: int
+    user_id: int
+    department_id: int
+    workstation_id: Optional[int] = None
+    is_primary: bool
+    created_at: datetime
+    department: Optional[DepartmentOut] = None
+    workstation: Optional[WorkstationOut] = None
+    user: Optional[UserOut] = None
+
+
+class UserDepartmentCreate(BaseModel):
+    department_id: int
+    workstation_id: Optional[int] = None
+    is_primary: bool = False
+
+
+class DepartmentMember(OrmBase):
+    user_id: int
+    user: Optional[UserOut] = None
+    workstation: Optional[WorkstationOut] = None
+    is_primary: bool
+    full_name: str = ""
+    role: str = ""
+
+    @model_validator(mode="after")
+    def populate_names(self) -> "DepartmentMember":
+        if self.user:
+            self.full_name = self.user.full_name
+            self.role = self.user.role.value if hasattr(self.user.role, "value") else str(self.user.role)
+        return self
+
+
+class DepartmentDetail(OrmBase):
+    id: int
+    name: str
+    code: str
+    description: Optional[str] = None
+    color: str
+    icon: str
+    manager_id: Optional[int] = None
+    is_active: bool
+    display_order: int
+    created_at: datetime
+    manager: Optional[UserOut] = None
+    workstations: list[WorkstationOut] = []
+    members: list[DepartmentMember] = []
+    fiche_count: int = 0
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,9 @@ models.py — SQLAlchemy ORM models for KnowFact.
 
 Tables:
   - users
+  - departments
+  - workstations
+  - user_departments
   - fiches
   - fiche_versions
   - attachments
@@ -90,6 +93,13 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # Department affectation principale (nullable pour compatibilité ascendante)
+    primary_department_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("departments.id", use_alter=True), nullable=True
+    )
+    primary_workstation_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("workstations.id", use_alter=True), nullable=True
+    )
 
     # Relationships
     authored_fiches: Mapped[list["Fiche"]] = relationship(
@@ -103,6 +113,116 @@ class User(Base):
     )
     attachments: Mapped[list["Attachment"]] = relationship(
         "Attachment", back_populates="uploader"
+    )
+    department_assignments: Mapped[list["UserDepartment"]] = relationship(
+        "UserDepartment", back_populates="user", cascade="all, delete-orphan"
+    )
+    primary_department: Mapped[Optional["Department"]] = relationship(
+        "Department", foreign_keys=[primary_department_id]
+    )
+    primary_workstation: Mapped[Optional["Workstation"]] = relationship(
+        "Workstation", foreign_keys=[primary_workstation_id]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Department
+# ---------------------------------------------------------------------------
+
+
+class Department(Base):
+    __tablename__ = "departments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    color: Mapped[str] = mapped_column(String(7), nullable=False, default="#0d9488")
+    icon: Mapped[str] = mapped_column(String(50), nullable=False, default="Factory")
+    manager_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    manager: Mapped[Optional["User"]] = relationship(
+        "User", foreign_keys=[manager_id]
+    )
+    workstations: Mapped[list["Workstation"]] = relationship(
+        "Workstation", back_populates="department", cascade="all, delete-orphan"
+    )
+    user_assignments: Mapped[list["UserDepartment"]] = relationship(
+        "UserDepartment", back_populates="department", cascade="all, delete-orphan"
+    )
+    fiches: Mapped[list["Fiche"]] = relationship(
+        "Fiche", back_populates="department"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Workstation
+# ---------------------------------------------------------------------------
+
+
+class Workstation(Base):
+    __tablename__ = "workstations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    department_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("departments.id"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    department: Mapped["Department"] = relationship(
+        "Department", back_populates="workstations"
+    )
+    user_assignments: Mapped[list["UserDepartment"]] = relationship(
+        "UserDepartment", back_populates="workstation"
+    )
+
+
+# ---------------------------------------------------------------------------
+# UserDepartment (table d'affectation utilisateur ↔ département)
+# ---------------------------------------------------------------------------
+
+
+class UserDepartment(Base):
+    __tablename__ = "user_departments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    department_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("departments.id"), nullable=False, index=True
+    )
+    workstation_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("workstations.id"), nullable=True
+    )
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="department_assignments")
+    department: Mapped["Department"] = relationship(
+        "Department", back_populates="user_assignments"
+    )
+    workstation: Mapped[Optional["Workstation"]] = relationship(
+        "Workstation", back_populates="user_assignments"
     )
 
 
@@ -153,6 +273,13 @@ class Fiche(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    # Département et poste de travail associés (nullable pour compatibilité ascendante)
+    department_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("departments.id"), nullable=True, index=True
+    )
+    workstation_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("workstations.id"), nullable=True
+    )
 
     # Relationships
     author: Mapped["User"] = relationship(
@@ -166,6 +293,12 @@ class Fiche(Base):
     )
     attachments: Mapped[list["Attachment"]] = relationship(
         "Attachment", back_populates="fiche", cascade="all, delete-orphan"
+    )
+    department: Mapped[Optional["Department"]] = relationship(
+        "Department", back_populates="fiches"
+    )
+    workstation: Mapped[Optional["Workstation"]] = relationship(
+        "Workstation", foreign_keys=[workstation_id]
     )
 
 

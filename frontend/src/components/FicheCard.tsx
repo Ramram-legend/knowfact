@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { FileText, User, Calendar } from 'lucide-react'
 import StatusBadge from './StatusBadge'
+import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, FicheType } from '../types'
 
 const typeLabels: Record<FicheType, string> = {
@@ -21,6 +22,8 @@ interface FicheCardProps {
 }
 
 export default function FicheCard({ fiche }: FicheCardProps) {
+  const { departments } = useDepartments()
+  const dept = fiche.department_id ? departments.find((d) => d.id === fiche.department_id) : null
   const content = fiche.content ?? {}
   const description = content.description ?? ''
   const tags: string[] = content.tags ?? []
@@ -37,6 +40,14 @@ export default function FicheCard({ fiche }: FicheCardProps) {
           >
             {typeLabels[fiche.type]}
           </span>
+          {dept && (
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+              style={{ backgroundColor: dept.color + '20', color: dept.color }}
+            >
+              {dept.name}
+            </span>
+          )}
           <StatusBadge status={fiche.status} size="sm" />
         </div>
         <FileText className="h-4 w-4 text-gray-400 shrink-0 mt-0.5 group-hover:text-primary-600 transition-colors" />

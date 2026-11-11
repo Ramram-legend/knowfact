@@ -144,6 +144,7 @@ def list_fiches(
     status_filter: Optional[FicheStatus] = Query(None, alias="status"),
     type_filter: Optional[str] = Query(None, alias="type"),
     author_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=100),
@@ -160,6 +161,8 @@ def list_fiches(
         query = query.filter(Fiche.type == type_filter)
     if author_id:
         query = query.filter(Fiche.author_id == author_id)
+    if department_id:
+        query = query.filter(Fiche.department_id == department_id)
 
     fiches = query.order_by(Fiche.updated_at.desc()).all()
     visible = [f for f in fiches if _can_see(f, current_user)]
@@ -206,6 +209,8 @@ def create_fiche(
         status=FicheStatus.draft,
         version=1,
         review_due_date=payload.review_due_date,
+        department_id=payload.department_id if payload.department_id else None,
+        workstation_id=payload.workstation_id if payload.workstation_id else None,
     )
     db.add(fiche)
     db.flush()  # get fiche.id before snapshot

@@ -5,10 +5,11 @@ import {
   ArrowLeft, Edit3, Send, CheckCircle, XCircle, RotateCcw,
   Eye, Archive, Plus, ChevronDown, ChevronUp, Paperclip,
   Clock, User, AlertCircle, FileText, Sparkles, ExternalLink,
-  ShieldAlert, Lightbulb, Check,
+  ShieldAlert, Lightbulb, Check, Building2,
 } from 'lucide-react'
 import { fichesApi } from '../api/fiches'
 import { useAuth } from '../contexts/AuthContext'
+import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, ImprovementProposalPayload } from '../types'
 import StatusBadge from '../components/StatusBadge'
 import ProposeImprovementModal from '../components/ProposeImprovementModal'
@@ -77,6 +78,7 @@ export default function FicheDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { departments } = useDepartments()
 
   const [fiche, setFiche] = useState<Fiche | null>(null)
   const [loading, setLoading] = useState(true)
@@ -298,6 +300,20 @@ export default function FicheDetail() {
               <span className="inline-flex items-center rounded-full bg-purple-100 text-purple-700 px-2.5 py-0.5 text-xs font-medium">
                 {TYPE_LABELS[fiche.type] ?? fiche.type}
               </span>
+              {fiche.department_id && (() => {
+                const dept = departments.find((d) => d.id === fiche.department_id)
+                if (!dept) return null
+                return (
+                  <Link
+                    to={`/departements/${dept.id}`}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium hover:opacity-85 transition-opacity"
+                    style={{ backgroundColor: dept.color + '20', color: dept.color }}
+                  >
+                    <Building2 className="h-3 w-3" />
+                    {dept.name}
+                  </Link>
+                )
+              })()}
               <StatusBadge status={fiche.status} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{fiche.title}</h1>

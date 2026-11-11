@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import {
   Users, FileText, ShieldCheck, CheckCircle, XCircle,
-  AlertCircle, RefreshCw,
+  AlertCircle, RefreshCw, Building2,
 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import { fichesApi } from '../api/fiches'
@@ -105,6 +105,10 @@ export default function Admin() {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Manage users and fiches across the platform.</p>
         </div>
+        <Link to="/admin/departements" className="btn-primary">
+          <Building2 className="h-4 w-4" />
+          Départements d'usine
+        </Link>
       </div>
 
       {/* Tabs */}

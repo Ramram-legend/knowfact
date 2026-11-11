@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { DepartmentProvider } from './contexts/DepartmentContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -14,47 +15,60 @@ import Admin from './pages/Admin'
 import MyPropositions from './pages/MyPropositions'
 import PendingReviews from './pages/PendingReviews'
 import ImprovementReview from './pages/ImprovementReview'
+import DepartmentDashboard from './pages/DepartmentDashboard'
+import DepartmentAdmin from './pages/DepartmentAdmin'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+        <DepartmentProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          {/* Protected routes — all wrapped in sidebar Layout */}
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/fiches" element={<FicheList />} />
-            <Route path="/fiches/new" element={<FicheCreate />} />
-            <Route path="/fiches/:id" element={<FicheDetail />} />
-            <Route path="/fiches/:id/edit" element={<FicheEdit />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/propositions" element={<MyPropositions />} />
-            <Route path="/fiches/improvements/pending" element={<PendingReviews />} />
-            <Route path="/fiches/improvements/:versionId/review" element={<ImprovementReview />} />
+            {/* Protected routes — all wrapped in sidebar Layout */}
             <Route
-              path="/admin"
               element={
-                <ProtectedRoute requiredRole="admin">
-                  <Admin />
+                <ProtectedRoute>
+                  <Layout />
                 </ProtectedRoute>
               }
-            />
-          </Route>
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/departements/:id" element={<DepartmentDashboard />} />
+              <Route path="/fiches" element={<FicheList />} />
+              <Route path="/fiches/new" element={<FicheCreate />} />
+              <Route path="/fiches/:id" element={<FicheDetail />} />
+              <Route path="/fiches/:id/edit" element={<FicheEdit />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/propositions" element={<MyPropositions />} />
+              <Route path="/fiches/improvements/pending" element={<PendingReviews />} />
+              <Route path="/fiches/improvements/:versionId/review" element={<ImprovementReview />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/departements"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <DepartmentAdmin />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </DepartmentProvider>
       </AuthProvider>
     </BrowserRouter>
   )

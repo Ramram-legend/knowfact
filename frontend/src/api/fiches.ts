@@ -27,6 +27,8 @@ export interface FicheCreatePayload {
   type: FicheType
   content: FicheContentPayload
   review_due_date?: string | null
+  department_id?: number | null
+  workstation_id?: number | null
 }
 
 /** Partial update payload. */
@@ -36,12 +38,15 @@ export interface FicheUpdatePayload {
   content?: FicheContentPayload
   review_due_date?: string | null
   change_reason?: string
+  department_id?: number | null
+  workstation_id?: number | null
 }
 
 export interface FicheListParams {
   status?: FicheStatus
   type?: FicheType
   search?: string
+  department_id?: number
   page?: number
 }
 

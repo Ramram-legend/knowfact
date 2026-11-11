@@ -81,6 +81,35 @@ Permet aux ingénieurs et techniciens d'optimiser les solutions déjà validées
 
 ---
 
+## 🏭 Nouvelle fonctionnalité : « Départements d'usine & Postes de travail »
+
+Permet d'organiser toute l'usine par pôles opérationnels (Production, Maintenance, Qualité, Logistique, HSE), d'affecter les utilisateurs à des postes spécifiques, et de filtrer les fiches de connaissances et solutions par département.
+
+### 🏢 Départements & Postes disponibles
+- **Production (PROD)** : Ligne de production 1, Poste Conditionnement
+- **Maintenance (MAINT)** : Atelier mécanique, Banc d'essais électriques
+- **Qualité (QUAL)** : Laboratoire contrôle, Poste contrôle visuel
+- **Logistique (LOG)** : Quai réception, Magasin central
+- **HSE (HSE)** : Poste de garde & premiers secours, Station traitement effluents
+
+### 🌐 Endpoints API — Départements & Postes
+
+| Méthode | Route | Description | Rôles autorisés |
+|---------|-------|-------------|-----------------|
+| `GET` | `/api/departments/` | Liste tous les départements actifs avec leurs postes | Tous |
+| `POST` | `/api/departments/` | Créer un département (nom, code, couleur, icône) | Admin |
+| `GET` | `/api/departments/my` | Liste les affectations de l'utilisateur connecté | Tous |
+| `GET` | `/api/departments/{id}` | Détail complet (membres, postes, nombre de fiches) | Tous |
+| `PUT` | `/api/departments/{id}` | Modifier un département | Admin |
+| `DELETE` | `/api/departments/{id}` | Désactiver un département (soft delete) | Admin |
+| `GET` | `/api/departments/{id}/workstations` | Liste les postes d'un département | Tous |
+| `POST` | `/api/departments/{id}/workstations` | Créer un poste de travail | Admin |
+| `PUT` | `/api/departments/{id}/workstations/{ws_id}` | Modifier un poste de travail | Admin |
+| `POST` | `/api/departments/{id}/members` | Affecter un utilisateur à un département/poste | Admin |
+| `DELETE` | `/api/departments/{id}/members/{user_id}` | Retirer une affectation | Admin |
+
+---
+
 ## 🏗️ Architecture du projet
 
 ```
@@ -88,32 +117,38 @@ knowfact/
 ├── backend/
 │   ├── main.py                     # Initialisation, CORS, routers
 │   ├── database.py                 # SQLite engine, init_db() avec auto-migrations
-│   ├── models.py                   # User, Fiche, FicheVersion, VersionReview, Attachment
-│   ├── schemas.py                  # Pydantic v2 (FicheOut, VersionDiffOut, ImprovementProposalOut...)
+│   ├── models.py                   # User, Department, Workstation, UserDepartment, Fiche, ...
+│   ├── schemas.py                  # Pydantic v2 (DepartmentOut, WorkstationOut, FicheOut...)
 │   ├── auth.py                     # JWT + bcrypt + demo login
-│   ├── seed.py                     # Données de démo avec v1 active et v2 pending
+│   ├── seed.py                     # Données de démo avec fiches et départements
 │   ├── tests/
-│   │   └── test_improvements.py    # Suite de tests Pytest (7 tests d'intégration complets)
+│   │   ├── conftest.py             # Fixtures SQLite in-memory partagées
+│   │   ├── test_improvements.py    # 7 tests d'amélioration de solution
+│   │   └── test_departments.py     # 5 tests pour les départements et postes
 │   └── routes/
 │       ├── auth.py                 # /api/auth/*
-│       ├── fiches.py               # /api/fiches/* (CRUD + workflow fiches + workflow améliorations)
-│       ├── search.py               # /api/search
+│       ├── departments.py          # /api/departments/* (CRUD départements + postes + membres)
+│       ├── fiches.py               # /api/fiches/* (CRUD + filtres départements)
+│       ├── search.py               # /api/search (recherche full-text + filtre département)
 │       └── users.py                # /api/users/*
 └── frontend/
     └── src/
-        ├── api/                    # client.ts, fiches.ts, auth.ts
+        ├── api/                    # client.ts, fiches.ts, auth.ts, departments.ts, search.ts
+        ├── contexts/               # AuthContext.tsx, DepartmentContext.tsx
         ├── components/
-        │   ├── ProposeImprovementModal.tsx  # Formulaire pré-rempli avec motif obligatoire
-        │   ├── FicheCard.tsx
-        │   ├── Sidebar.tsx                  # Navigation + switcher de rôle en un clic
+        │   ├── ProposeImprovementModal.tsx
+        │   ├── FicheCard.tsx       # Badge département avec couleur personnalisée
+        │   ├── Sidebar.tsx         # Navigation structurée avec sous-sections par département
         │   └── StatusBadge.tsx
         ├── pages/
-        │   ├── FicheDetail.tsx              # Bandeau, bouton amélioration, historique versions
-        │   ├── ImprovementReview.tsx        # Écran de revue côte à côte (Diff visuel)
-        │   ├── MyPropositions.tsx           # Page "Mes propositions" pour l'ingénieur/technicien
-        │   ├── PendingReviews.tsx           # File d'attente "À valider" pour les experts
-        │   ├── Dashboard.tsx
-        │   ├── FicheList.tsx
-        │   └── Search.tsx
-        └── types/index.ts          # Types TypeScript complets (VersionStatus, VersionDiff...)
+        │   ├── DepartmentDashboard.tsx # Vue département (membres, postes, fiches, vue opérateur)
+        │   ├── DepartmentAdmin.tsx     # Gestion complète CRUD départements & postes (admin)
+        │   ├── FicheDetail.tsx         # Badge département avec lien direct
+        │   ├── FicheCreate.tsx         # Sélecteur département & poste
+        │   ├── FicheList.tsx           # Filtre déroulant par département
+        │   ├── Search.tsx              # Filtre par département dans la recherche
+        │   ├── Dashboard.tsx           # Cartes d'accès rapide aux départements
+        │   ├── Admin.tsx
+        │   └── ...
+        └── types/index.ts          # Types TypeScript complets
 ```

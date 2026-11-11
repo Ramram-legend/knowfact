@@ -50,6 +50,7 @@ def search(
     q: Optional[str] = Query(None, description="Keyword to search in title and content"),
     type: Optional[str] = Query(None, description="Fiche type filter"),
     status: Optional[FicheStatus] = Query(None, description="Status filter"),
+    department_id: Optional[int] = Query(None, description="Department filter"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -64,6 +65,9 @@ def search(
 
     if status:
         query = query.filter(Fiche.status == status)
+
+    if department_id:
+        query = query.filter(Fiche.department_id == department_id)
 
     fiches = query.order_by(Fiche.updated_at.desc()).all()
 

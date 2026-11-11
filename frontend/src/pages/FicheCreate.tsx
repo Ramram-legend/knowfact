@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
-import { Plus, Trash2, CheckCircle, XCircle, GripVertical } from 'lucide-react'
+import { Plus, Trash2, CheckCircle, XCircle, GripVertical, Building2, Briefcase } from 'lucide-react'
 import { fichesApi } from '../api/fiches'
+import { useDepartments } from '../contexts/DepartmentContext'
 import type { FicheType } from '../types'
 
 interface StepField {
@@ -83,6 +84,14 @@ function TagInput({ label, placeholder, value, onChange, tags, onRemove, onAdd }
 
 export default function FicheCreate() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { departments } = useDepartments()
+  const initialDeptId = searchParams.get('department_id') || ''
+  const [selectedDeptId, setSelectedDeptId] = useState(initialDeptId)
+  const [selectedWsId, setSelectedWsId] = useState('')
+
+  const activeDept = departments.find((d) => String(d.id) === selectedDeptId)
+
   const [toast, setToast] = useState<Toast | null>(null)
   const [equipmentTags, setEquipmentTags] = useState<string[]>([])
   const [tagsList, setTagsList] = useState<string[]>([])
@@ -111,6 +120,8 @@ export default function FicheCreate() {
   const buildPayload = (data: FicheFormData) => ({
     title: data.title,
     type: data.type,
+    department_id: selectedDeptId ? Number(selectedDeptId) : null,
+    workstation_id: selectedWsId ? Number(selectedWsId) : null,
     content: {
       description: data.description,
       steps: fields.map((_, i) => ({
@@ -176,6 +187,52 @@ export default function FicheCreate() {
               <option value="task_post">Task Post</option>
               <option value="procedure">Procedure</option>
             </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-primary-600" />
+                Département
+              </label>
+              <select
+                className="input-field"
+                value={selectedDeptId}
+                onChange={(e) => {
+                  setSelectedDeptId(e.target.value)
+                  setSelectedWsId('')
+                }}
+              >
+                <option value="">— Aucun (général) —</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label flex items-center gap-1.5">
+                <Briefcase className="h-3.5 w-3.5 text-gray-500" />
+                Poste de travail
+              </label>
+              <select
+                className="input-field"
+                value={selectedWsId}
+                onChange={(e) => setSelectedWsId(e.target.value)}
+                disabled={!activeDept || activeDept.workstations.length === 0}
+              >
+                <option value="">— Aucun poste spécifique —</option>
+                {activeDept?.workstations
+                  .filter((w) => w.is_active)
+                  .map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} {w.code ? `(${w.code})` : ''}
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
 
           <div>

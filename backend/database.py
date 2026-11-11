@@ -53,6 +53,34 @@ def init_db():
         except Exception as e:
             print(f"init_db migration note: {e}")
 
+        # ---------------------------------------------------------------
+        # Migrations : colonnes departments, workstations, user_departments
+        # ---------------------------------------------------------------
+        try:
+            con = sqlite3.connect(db_path)
+            cur = con.cursor()
+
+            # users → primary_department_id, primary_workstation_id
+            user_cols = [col[1] for col in cur.execute("PRAGMA table_info(users)").fetchall()]
+            if user_cols:
+                if "primary_department_id" not in user_cols:
+                    cur.execute("ALTER TABLE users ADD COLUMN primary_department_id INTEGER REFERENCES departments(id)")
+                if "primary_workstation_id" not in user_cols:
+                    cur.execute("ALTER TABLE users ADD COLUMN primary_workstation_id INTEGER REFERENCES workstations(id)")
+
+            # fiches → department_id, workstation_id
+            fiche_cols = [col[1] for col in cur.execute("PRAGMA table_info(fiches)").fetchall()]
+            if fiche_cols:
+                if "department_id" not in fiche_cols:
+                    cur.execute("ALTER TABLE fiches ADD COLUMN department_id INTEGER REFERENCES departments(id)")
+                if "workstation_id" not in fiche_cols:
+                    cur.execute("ALTER TABLE fiches ADD COLUMN workstation_id INTEGER REFERENCES workstations(id)")
+
+            con.commit()
+            con.close()
+        except Exception as e:
+            print(f"init_db migration (departments) note: {e}")
+
 
 def get_db():
     """FastAPI dependency that yields a database session and ensures it closes."""

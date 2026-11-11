@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { Search as SearchIcon, Filter, FileText, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search as SearchIcon, Filter, FileText, AlertCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import { searchApi } from '../api/search'
+import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, FicheType, FicheStatus } from '../types'
 import FicheCard from '../components/FicheCard'
 
@@ -26,6 +27,7 @@ const TYPE_OPTIONS: { value: FicheType | ''; label: string }[] = [
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { departments } = useDepartments()
   const [results, setResults] = useState<Fiche[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -35,6 +37,7 @@ export default function Search() {
   const q = searchParams.get('q') || ''
   const typeFilter = searchParams.get('type') || ''
   const statusFilter = searchParams.get('status') || ''
+  const departmentFilter = searchParams.get('department_id') || ''
   const page = Number(searchParams.get('page') || '1')
 
   const PAGE_SIZE = 12
@@ -43,6 +46,7 @@ export default function Search() {
     query: string,
     type: string,
     status: string,
+    deptId: string,
     p: number,
   ) => {
     if (!query.trim()) return
@@ -53,6 +57,7 @@ export default function Search() {
         q: query,
         type: type || undefined,
         status: status || undefined,
+        department_id: deptId ? Number(deptId) : undefined,
         page: p,
       })
       setResults(res.results)
@@ -65,12 +70,18 @@ export default function Search() {
     }
   }, [])
 
+  useEffect(() => {
+    if (q.trim()) {
+      doSearch(q, typeFilter, statusFilter, departmentFilter, page)
+    }
+  }, [q, typeFilter, statusFilter, departmentFilter, page, doSearch])
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const p = new URLSearchParams(searchParams)
     p.set('page', '1')
     setSearchParams(p)
-    doSearch(q, typeFilter, statusFilter, 1)
+    doSearch(q, typeFilter, statusFilter, departmentFilter, 1)
   }
 
   const updateParam = (key: string, value: string) => {
@@ -146,7 +157,23 @@ export default function Search() {
               </select>
             </div>
 
-            {(statusFilter || typeFilter) && (
+            <div>
+              <label className="label text-xs">Département</label>
+              <select
+                value={departmentFilter}
+                onChange={(e) => updateParam('department_id', e.target.value)}
+                className="input-field text-sm"
+              >
+                <option value="">Tous les départements</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(statusFilter || typeFilter || departmentFilter) && (
               <button
                 onClick={() => {
                   const p = new URLSearchParams()
@@ -199,7 +226,7 @@ export default function Search() {
                       const p = new URLSearchParams(searchParams)
                       p.set('page', String(page - 1))
                       setSearchParams(p)
-                      doSearch(q, typeFilter, statusFilter, page - 1)
+                      doSearch(q, typeFilter, statusFilter, departmentFilter, page - 1)
                     }}
                     disabled={page <= 1}
                     className="btn-secondary px-2.5 py-2 disabled:opacity-40"
@@ -212,7 +239,7 @@ export default function Search() {
                       const p = new URLSearchParams(searchParams)
                       p.set('page', String(page + 1))
                       setSearchParams(p)
-                      doSearch(q, typeFilter, statusFilter, page + 1)
+                      doSearch(q, typeFilter, statusFilter, departmentFilter, page + 1)
                     }}
                     disabled={page >= totalPages}
                     className="btn-secondary px-2.5 py-2 disabled:opacity-40"

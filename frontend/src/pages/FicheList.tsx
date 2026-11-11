@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { PlusCircle, Filter, FileText, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { PlusCircle, Filter, FileText, AlertCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import { fichesApi } from '../api/fiches'
+import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, FicheStatus, FicheType } from '../types'
 import FicheCard from '../components/FicheCard'
 
@@ -26,6 +27,7 @@ const TYPE_OPTIONS: { value: FicheType | ''; label: string }[] = [
 
 export default function FicheList() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { departments } = useDepartments()
   const [fiches, setFiches] = useState<Fiche[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -34,6 +36,7 @@ export default function FicheList() {
   const statusFilter = (searchParams.get('status') as FicheStatus) || ''
   const typeFilter = (searchParams.get('type') as FicheType) || ''
   const searchFilter = searchParams.get('search') || ''
+  const departmentFilter = searchParams.get('department_id') || ''
   const page = Number(searchParams.get('page') || '1')
 
   const PAGE_SIZE = 12
@@ -46,6 +49,7 @@ export default function FicheList() {
         status: statusFilter || undefined,
         type: typeFilter || undefined,
         search: searchFilter || undefined,
+        department_id: departmentFilter ? Number(departmentFilter) : undefined,
         page,
       })
       setFiches(res.results)
@@ -55,7 +59,7 @@ export default function FicheList() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, typeFilter, searchFilter, page])
+  }, [statusFilter, typeFilter, searchFilter, departmentFilter, page])
 
   useEffect(() => { load() }, [load])
 
@@ -117,6 +121,19 @@ export default function FicheList() {
         >
           {TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+
+        <select
+          value={departmentFilter}
+          onChange={(e) => updateParam('department_id', e.target.value)}
+          className="input-field sm:w-48"
+        >
+          <option value="">Tous les départements</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name} ({d.code})
+            </option>
           ))}
         </select>
       </div>

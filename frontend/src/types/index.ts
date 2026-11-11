@@ -1,3 +1,56 @@
+// ─── Département / Poste ─────────────────────────────────────────────────────
+export interface Workstation {
+  id: number
+  department_id: number
+  name: string
+  code?: string | null
+  description?: string | null
+  is_active: boolean
+  display_order: number
+  created_at: string
+}
+
+export interface Department {
+  id: number
+  name: string
+  code: string
+  description?: string | null
+  color: string
+  icon: string
+  manager_id?: number | null
+  is_active: boolean
+  display_order: number
+  created_at: string
+  manager?: User | null
+  workstations: Workstation[]
+  member_count?: number
+}
+
+export interface DepartmentDetail extends Department {
+  members: DepartmentMember[]
+  fiche_count: number
+}
+
+export interface DepartmentMember {
+  user_id: number
+  user?: User | null
+  workstation?: Workstation | null
+  is_primary: boolean
+  full_name: string
+  role: string
+}
+
+export interface UserDepartment {
+  id: number
+  user_id: number
+  department_id: number
+  workstation_id?: number | null
+  is_primary: boolean
+  created_at: string
+  department?: Department | null
+  workstation?: Workstation | null
+}
+
 // ─── User ────────────────────────────────────────────────────────────────────
 export type UserRole = 'operator' | 'technician' | 'engineer' | 'expert' | 'admin'
 
@@ -8,6 +61,8 @@ export interface User {
   role: UserRole
   is_active: boolean
   created_at: string
+  primary_department_id?: number | null
+  primary_workstation_id?: number | null
 }
 
 // ─── Fiche ───────────────────────────────────────────────────────────────────
@@ -103,6 +158,8 @@ export interface Fiche {
   attachments?: Attachment[]
   has_pending_improvement?: boolean
   pending_improvement_id?: number | null
+  department_id?: number | null
+  workstation_id?: number | null
 }
 
 // ─── Improvement Proposals ───────────────────────────────────────────────────

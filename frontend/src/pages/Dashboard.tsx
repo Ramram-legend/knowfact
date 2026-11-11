@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, CheckCircle, Clock, Edit3, PlusCircle, TrendingUp, AlertCircle } from 'lucide-react'
+import { FileText, CheckCircle, Clock, Edit3, PlusCircle, TrendingUp, AlertCircle, Building2 } from 'lucide-react'
 import { fichesApi } from '../api/fiches'
 import { useAuth } from '../contexts/AuthContext'
+import { useDepartments } from '../contexts/DepartmentContext'
 import type { DashboardStats } from '../types'
 import FicheCard from '../components/FicheCard'
 import StatusBadge from '../components/StatusBadge'
@@ -30,6 +31,7 @@ function StatCard({ label, value, icon, color }: StatCardProps) {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { departments } = useDepartments()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -158,6 +160,46 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Départements de l'usine */}
+      {departments.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary-600" />
+              Départements de l'usine
+            </h2>
+            {user?.role === 'admin' && (
+              <Link to="/admin/departements" className="text-xs text-primary-600 hover:underline font-medium">
+                Gérer les départements →
+              </Link>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {departments.map((d) => (
+              <Link
+                key={d.id}
+                to={`/departements/${d.id}`}
+                className="card hover:shadow-md transition-all flex flex-col items-center text-center p-4 group border border-gray-100 hover:border-primary-200"
+              >
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl mb-2.5 transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: d.color + '20', color: d.color }}
+                >
+                  <Building2 className="h-6 w-6" />
+                </div>
+                <p className="font-semibold text-sm text-gray-900 group-hover:text-primary-600 transition-colors">
+                  {d.name}
+                </p>
+                <span className="font-mono text-[10px] text-gray-400 mt-0.5">{d.code}</span>
+                <span className="text-xs text-gray-500 mt-1">
+                  {d.workstations.filter((w) => w.is_active).length} poste(s)
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent fiches */}
       <div>

@@ -5,6 +5,7 @@ export interface SearchParams {
   q: string
   type?: string
   status?: string
+  department_id?: number
   page?: number
 }
 
