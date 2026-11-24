@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
-import { FileText, User, Calendar } from 'lucide-react'
+import { FileText, User, Calendar, FileSpreadsheet } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, FicheType } from '../types'
@@ -49,6 +49,11 @@ export default function FicheCard({ fiche }: FicheCardProps) {
             </span>
           )}
           <StatusBadge status={fiche.status} size="sm" />
+          {fiche.type === 'procedure' && (
+            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold">
+              <FileSpreadsheet className="h-3 w-3" /> Fiche Opératoire
+            </span>
+          )}
         </div>
         <FileText className="h-4 w-4 text-gray-400 shrink-0 mt-0.5 group-hover:text-primary-600 transition-colors" />
       </div>

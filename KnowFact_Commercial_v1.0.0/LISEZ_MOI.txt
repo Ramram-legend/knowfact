@@ -1,0 +1,47 @@
+================================================================================
+  KNOWFACT v1.0.0 — Plateforme Industrielle de Gestion des Connaissances
+  Package Commercial Pret a Deploiement (Windows 64-bit)
+================================================================================
+
+BIENVENUE !
+
+Ce dossier contient tout le necessaire pour installer, lancer et presenter
+le logiciel KnowFact en mode 100% autonome (interface + base de donnees +
+serveur local integre, aucune connexion Internet requise).
+
+--------------------------------------------------------------------------------
+CONTENU DU DOSSIER
+--------------------------------------------------------------------------------
+
+1) 01_Installateur_Windows\
+   -> KnowFact-Setup-1.0.0.exe
+   Installateur officiel Windows (cree les raccourcis Bureau et Menu Demarrer).
+   RECOMMANDE pour l'installation sur le poste utilisateur.
+
+2) 02_Version_Portable\
+   -> Double-cliquez sur Lancer_KnowFact.bat (ou KnowFact\KnowFact.exe)
+   Permet d'executer KnowFact immediatement sans installation (cle USB, demo).
+
+3) 03_Documentation\
+   -> 01_Guide_Installation_et_Demarrage.md
+   -> 02_Manuel_Utilisateur.md
+   -> 03_Fiche_Produit_Commerciale.md
+   -> 04_Notes_de_Version_v1.0.0.md
+
+4) 04_Comptes_Demo_et_Tests\
+   -> Comptes_Acces_Demo.md (identifiants par role + scenario de demonstration)
+
+5) VERSION.txt
+   -> Version exacte, configuration requise et empreinte SHA-256 de controle.
+
+--------------------------------------------------------------------------------
+DEMARRAGE RAPIDE (30 SECONDES)
+--------------------------------------------------------------------------------
+1. Lancez 01_Installateur_Windows\KnowFact-Setup-1.0.0.exe (ou Lancer_KnowFact.bat).
+2. Attendez 2 a 5 secondes le demarrage automatique du moteur local.
+3. Connectez-vous avec un compte de demonstration (ex: engineer@knowfact.com /
+   engineer123) ou utilisez les boutons de connexion rapide.
+
+Note : Si Windows SmartScreen affiche un avertissement (application non signee
+par certificat EV), cliquez sur "Informations complementaires" -> "Executer quand meme".
+================================================================================

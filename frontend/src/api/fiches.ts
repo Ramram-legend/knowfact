@@ -10,6 +10,7 @@ import type {
   ImprovementProposal,
   ImprovementReviewPayload,
   VersionDiff,
+  OperatingSheet,
 } from '../types'
 
 /** The shape of `content` as sent to the backend. */
@@ -177,6 +178,24 @@ export const fichesApi = {
     payload: ImprovementReviewPayload
   ): Promise<VersionDiff> => {
     const { data } = await client.post<VersionDiff>(`/fiches/improvements/${versionId}/review`, payload)
+    return data
+  },
+
+  // ── Operating Sheet (Fiche Opératoire) ──────────────────────────────────
+  getOperatingSheet: async (ficheId: number): Promise<OperatingSheet> => {
+    const { data } = await client.get<OperatingSheet>(`/fiches/${ficheId}/operating-sheet`)
+    return data
+  },
+
+  generateOperatingSheet: async (ficheId: number, force: boolean = true): Promise<OperatingSheet> => {
+    const { data } = await client.post<OperatingSheet>(
+      `/fiches/${ficheId}/generate-operating-sheet?force=${force}`
+    )
+    return data
+  },
+
+  saveOperatingSheet: async (ficheId: number, sheet: OperatingSheet): Promise<OperatingSheet> => {
+    const { data } = await client.put<OperatingSheet>(`/fiches/${ficheId}/operating-sheet`, sheet)
     return data
   },
 }

@@ -51,12 +51,15 @@ def search(
     type: Optional[str] = Query(None, description="Fiche type filter"),
     status: Optional[FicheStatus] = Query(None, description="Status filter"),
     department_id: Optional[int] = Query(None, description="Department filter"),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(12, ge=1, le=100, description="Results per page"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """
     Full-text search on fiche title and JSON content fields.
     Results are filtered by the current user's visibility rules.
+    Supports pagination via page / page_size query params.
     """
     query = db.query(Fiche).options(joinedload(Fiche.author))
 
@@ -92,4 +95,9 @@ def search(
 
         visible = [f for f in visible if _matches(f)]
 
-    return SearchResult(total=len(visible), results=visible)
+    total = len(visible)
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_items = visible[start:end]
+
+    return SearchResult(total=total, count=total, results=page_items)

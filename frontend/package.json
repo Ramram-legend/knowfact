@@ -1,10 +1,17 @@
 {
   "name": "knowfact-frontend",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "KnowFact – Gestion des connaissances industrielles",
+  "author": "KnowFact Team",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently --kill-other-on-fail \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "cross-env ELECTRON=true npm run build && electron-builder --win",
+    "electron:pack": "cross-env ELECTRON=true npm run build && electron-builder --dir",
+    "pyinstaller": "cd ../backend && pyinstaller --onefile --name knowfact-server --add-data \"./uploads;uploads\" main.py"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -23,6 +30,60 @@
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "vite": "^5.0.12",
+    "electron": "*",
+    "electron-builder": "*",
+    "concurrently": "*",
+    "wait-on": "*",
+    "cross-env": "*"
+  },
+  "build": {
+    "appId": "com.knowfact.app",
+    "productName": "KnowFact",
+    "copyright": "Copyright © 2024 KnowFact Team",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "node_modules/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/knowfact-server.exe",
+        "to": "backend/knowfact-server.exe"
+      },
+      {
+        "from": "../backend/knowfact.db",
+        "to": "backend/knowfact.db"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "KnowFact"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icon.png"
+    }
   }
 }

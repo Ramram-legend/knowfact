@@ -262,3 +262,216 @@ export interface DashboardStats {
   my_drafts: number
   recent_fiches: Fiche[]
 }
+
+// ─── Gamification ────────────────────────────────────────────────────────────
+export interface BadgeItem {
+  badge_id: string
+  name: string
+  description: string
+  icon: string
+  color: string
+  earned_at?: string
+  criteria?: string
+  is_earned?: boolean
+}
+
+export interface GamificationTransaction {
+  id: number
+  action: string
+  points: number
+  reason?: string | null
+  reference_id?: number | null
+  reference_type?: string | null
+  created_at: string
+}
+
+export interface UserGamificationProfile {
+  user_id: number
+  total_points: number
+  level: number
+  level_name: string
+  level_icon: string
+  progress_pct: number
+  points_to_next: number
+  next_level_name: string | null
+  solutions_shared: number
+  procedures_created: number
+  tasks_contributed: number
+  helpful_contributions: number
+  total_contributions: number
+  badges: BadgeItem[]
+  recent_transactions: GamificationTransaction[]
+  full_name?: string
+  role?: string
+  initials?: string
+  leaderboard_rank?: number | null
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  user_id: number
+  full_name: string
+  role: string
+  level: number
+  level_name: string
+  level_icon: string
+  total_points: number
+  badges_count: number
+  initials: string
+}
+
+export interface LeaderboardResponse {
+  period: string
+  role?: string
+  current_user_rank: number | null
+  leaderboard: LeaderboardEntry[]
+}
+
+export interface GamificationNotification {
+  id: number
+  type: string
+  message: string
+  reference_id?: number | null
+  is_read: boolean
+  created_at: string
+}
+
+export interface NotificationsResponse {
+  unread_count: number
+  notifications: GamificationNotification[]
+}
+
+export interface PointConfig {
+  id: number
+  action_key: string
+  points: number
+  label: string
+  description: string | null
+  is_active: boolean
+  updated_at?: string
+}
+
+export interface AdminStats {
+  total_users_with_points: number
+  total_points_awarded: number
+  total_transactions: number
+  avg_points_per_user: number
+  top_earners: {
+    user_id: number
+    full_name: string
+    total_points: number
+    level: number
+  }[]
+  recent_transactions: GamificationTransaction[]
+  suspicious_users: {
+    user_id: number
+    full_name: string
+    flagged_actions: { action: string; count: number }[]
+  }[]
+}
+
+// ─── Fiche Opératoire Simplifiée (Operating Sheet / SOP) ────────────────────
+export interface PPEItem {
+  code: 'glasses' | 'gloves' | 'safety_shoes' | 'ear_protection' | 'helmet' | 'mask' | 'hi_vis' | string
+  name: string
+  required: boolean
+  description?: string | null
+}
+
+export interface OperatingStep {
+  order: number
+  title: string
+  instruction: string
+  control_point: string
+  warning?: string | null
+  image_url?: string | null
+}
+
+export interface SafetySection {
+  hazards: string[]
+  precautions: string[]
+  prohibitions: string[]
+  emergency_actions: string[]
+}
+
+export interface ValidationChecklist {
+  items: string[]
+  completion_text: string
+  operator_signature_title: string
+  supervisor_signature_title: string
+}
+
+export interface OperatingSheet {
+  company_name: string
+  title: string
+  reference: string
+  fiche_id: number
+  procedure_version: number
+  sheet_version: string
+  department_name: string
+  department_code: string
+  workstation_name?: string | null
+  created_at: string
+  generated_at: string
+  author_name: string
+  validator_name?: string | null
+  objective: string
+  tools_and_equipment: string[]
+  required_ppe: PPEItem[]
+  prerequisites: string[]
+  estimated_duration?: string | null
+  difficulty_level?: string | null
+  steps: OperatingStep[]
+  safety: SafetySection
+  validation: ValidationChecklist
+}
+
+// ─── Assistant IA (Recherche intelligente Solutions & Tâches) ───────────────
+export type AssistantMode = 'all' | 'solutions' | 'tasks' | 'procedures'
+
+export interface ChatHistoryMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AIAssistantFicheSummary {
+  id: number
+  title: string
+  type: FicheType | string
+  status: FicheStatus | string
+  version: number
+  author_name: string
+  department_id?: number | null
+  department_name?: string | null
+  workstation_name?: string | null
+  equipment: string
+  tags: string[]
+  useful_count: number
+  security_note?: string | null
+}
+
+export interface AIAssistantRecommendation {
+  fiche: AIAssistantFicheSummary
+  relevance_score: number
+  match_reasons: string[]
+  excerpt: string
+  key_steps: string[]
+  safety_warning?: string | null
+}
+
+export interface AIAssistantResponse {
+  answer: string
+  intent_detected: 'solution' | 'task' | 'procedure' | 'general' | string
+  mode_used: AssistantMode
+  detected_department?: string | null
+  keywords_used: string[]
+  recommendations: AIAssistantRecommendation[]
+  suggested_followups: string[]
+  total_candidates_scanned: number
+}
+
+export interface AISuggestionPrompt {
+  label: string
+  prompt: string
+  mode: AssistantMode
+}

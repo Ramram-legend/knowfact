@@ -26,13 +26,14 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
 from sqlalchemy.orm import Session, joinedload
 
 from auth import get_current_active_user
-from database import get_db
+from database import get_db, UPLOAD_DIR
 from models import (
     Attachment,
     Fiche,
@@ -44,6 +45,7 @@ from models import (
     VersionReview,
     VersionStatus,
 )
+from operating_sheet import OperatingSheet, generate_operating_sheet
 from schemas import (
     AttachmentOut,
     DashboardStats,
@@ -66,8 +68,7 @@ from schemas import (
 
 router = APIRouter(prefix="/api/fiches", tags=["fiches"])
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +108,8 @@ def _get_fiche_or_404(fiche_id: int, db: Session) -> Fiche:
         .options(
             joinedload(Fiche.author),
             joinedload(Fiche.reviewer),
+            joinedload(Fiche.department),
+            joinedload(Fiche.workstation),
             joinedload(Fiche.versions).joinedload(FicheVersion.changed_by_user),
             joinedload(Fiche.versions).joinedload(FicheVersion.reviews).joinedload(VersionReview.reviewer),
             joinedload(Fiche.attachments),
@@ -670,6 +673,31 @@ def review_improvement_proposal(
         )
         db.add(review_entry)
 
+        # Award points to improvement proposer
+        try:
+            from gamification import award_points as _award_points
+            _award_points(
+                user_id=version.changed_by,
+                action="improvement_validated",
+                db=db,
+                reference_id=version.id,
+                reference_type="fiche_version",
+                awarded_by_id=current_user.id,
+                reason=f"Improvement validated on: {fiche.title[:60]}",
+            )
+            # Also give expert approval bonus
+            _award_points(
+                user_id=version.changed_by,
+                action="solution_approved_by_expert",
+                db=db,
+                reference_id=version.id,
+                reference_type="fiche_version_approval",
+                awarded_by_id=current_user.id,
+                reason=f"Expert approved improvement on: {fiche.title[:60]}",
+            )
+        except Exception as _e:
+            print(f"Gamification award_points error (improvement review): {_e}")
+
     elif payload.action == "request_correction":
         if not comment:
             raise HTTPException(
@@ -896,6 +924,20 @@ def validate_fiche(
     fiche.review_comment = payload.comment if hasattr(payload, 'comment') else ""
     fiche.validated_at = datetime.now(timezone.utc)
     fiche.updated_at = datetime.now(timezone.utc)
+    # Bonus points for expert approval
+    try:
+        from gamification import award_points as _award_points
+        _award_points(
+            user_id=fiche.author_id,
+            action="solution_approved_by_expert",
+            db=db,
+            reference_id=fiche.id,
+            reference_type="fiche",
+            awarded_by_id=current_user.id,
+            reason=f"Expert approval: {fiche.title[:60]}",
+        )
+    except Exception as _e:
+        print(f"Gamification award_points error (validate): {_e}")
     db.commit()
     db.refresh(fiche)
     return _get_fiche_or_404(fiche_id, db)
@@ -977,6 +1019,19 @@ def review_fiche(
     if payload.action == "validate":
         fiche.status = FicheStatus.validated
         fiche.validated_at = datetime.now(timezone.utc)
+        try:
+            from gamification import award_points as _award_points
+            _award_points(
+                user_id=fiche.author_id,
+                action="solution_approved_by_expert",
+                db=db,
+                reference_id=fiche.id,
+                reference_type="fiche",
+                awarded_by_id=current_user.id,
+                reason=f"Expert review approved: {fiche.title[:60]}",
+            )
+        except Exception as _e:
+            print(f"Gamification award_points error (review): {_e}")
     elif payload.action == "reject":
         fiche.status = FicheStatus.rejected
     elif payload.action == "request_correction":
@@ -1013,9 +1068,193 @@ def publish_fiche(
     fiche.status = FicheStatus.published
     fiche.published_at = datetime.now(timezone.utc)
     fiche.updated_at = datetime.now(timezone.utc)
+    # Award points to the author for publishing
+    try:
+        from gamification import award_points as _award_points
+        content_dict = {}
+        try:
+            content_dict = json.loads(fiche.content) if isinstance(fiche.content, str) else {}
+        except Exception:
+            pass
+        tags = [str(t).lower() for t in content_dict.get("tags", [])]
+        is_best_practice = any("pratique" in t or "practice" in t for t in tags)
+
+        if is_best_practice:
+            _action = "share_best_practice"
+        else:
+            _action_map = {
+                "problem_solution": "publish_problem_solution",
+                "procedure": "publish_procedure",
+                "task_post": "publish_task_post",
+            }
+            _action = _action_map.get(fiche.type.value if hasattr(fiche.type, 'value') else str(fiche.type), "publish_task_post")
+
+        _award_points(
+            user_id=fiche.author_id,
+            action=_action,
+            db=db,
+            reference_id=fiche.id,
+            reference_type="fiche",
+            reason=f"Published: {fiche.title[:60]}",
+        )
+    except Exception as _e:
+        print(f"Gamification award_points error (publish): {_e}")
     db.commit()
     db.refresh(fiche)
     return _get_fiche_or_404(fiche_id, db)
+
+
+# ---------------------------------------------------------------------------
+# Evaluate Solution (Peer Feedback / Positive Evaluation)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{fiche_id}/evaluate")
+def evaluate_fiche(
+    fiche_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Give a positive evaluation to a published solution (+5 points awarded to the author).
+    - Prevents evaluating own fiche
+    - Prevents multiple evaluations by the same user
+    - Solution must be published or validated
+    """
+    fiche = _get_fiche_or_404(fiche_id, db)
+    if fiche.status not in (FicheStatus.published, FicheStatus.validated):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seules les solutions publiées ou validées peuvent être évaluées.",
+        )
+    if fiche.author_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vous ne pouvez pas évaluer votre propre contribution.",
+        )
+
+    from models import PointsTransaction
+    already = db.query(PointsTransaction).filter(
+        PointsTransaction.action == "receive_positive_evaluation",
+        PointsTransaction.reference_id == fiche_id,
+        PointsTransaction.awarded_by_id == current_user.id,
+    ).first()
+    if already:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vous avez déjà évalué positivement cette solution.",
+        )
+
+    from gamification import award_points as _award_points
+    _award_points(
+        user_id=fiche.author_id,
+        action="receive_positive_evaluation",
+        db=db,
+        reference_id=fiche.id,
+        reference_type="fiche",
+        awarded_by_id=current_user.id,
+        reason=f"Évaluation positive de {current_user.full_name} sur : {fiche.title[:50]}",
+    )
+    db.commit()
+
+    eval_count = db.query(PointsTransaction).filter(
+        PointsTransaction.action == "receive_positive_evaluation",
+        PointsTransaction.reference_id == fiche_id,
+    ).count()
+
+    return {
+        "message": "Évaluation positive enregistrée (+5 points attribués à l'auteur) !",
+        "evaluations_count": eval_count,
+        "has_evaluated": True,
+    }
+
+
+@router.get("/{fiche_id}/evaluation-status")
+def get_fiche_evaluation_status(
+    fiche_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get positive evaluation count and whether current user has evaluated."""
+    from models import PointsTransaction
+    eval_count = db.query(PointsTransaction).filter(
+        PointsTransaction.action == "receive_positive_evaluation",
+        PointsTransaction.reference_id == fiche_id,
+    ).count()
+    has_evaluated = (
+        db.query(PointsTransaction).filter(
+            PointsTransaction.action == "receive_positive_evaluation",
+            PointsTransaction.reference_id == fiche_id,
+            PointsTransaction.awarded_by_id == current_user.id,
+        ).first() is not None
+    )
+    return {"evaluations_count": eval_count, "has_evaluated": has_evaluated}
+
+
+# ---------------------------------------------------------------------------
+# Mark Useful
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{fiche_id}/mark_useful")
+def mark_useful(
+    fiche_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Increment useful_count by 1 for a fiche. Any authenticated user can click 'Useful'."""
+    fiche = db.query(Fiche).filter(Fiche.id == fiche_id).first()
+    if not fiche:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fiche not found.")
+    fiche.useful_count = (fiche.useful_count or 0) + 1
+    db.commit()
+    db.refresh(fiche)
+    return {"useful_count": fiche.useful_count}
+
+
+# ---------------------------------------------------------------------------
+# QR Code
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{fiche_id}/qr")
+def get_fiche_qr(
+    fiche_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Return a QR code (SVG or PNG) pointing to /fiches/{fiche_id}."""
+    fiche = db.query(Fiche).filter(Fiche.id == fiche_id).first()
+    if not fiche:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fiche not found.")
+
+    target_url = f"http://localhost:3000/fiches/{fiche_id}"
+
+    try:
+        import qrcode  # type: ignore
+        import io
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(target_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return Response(content=buf.read(), media_type="image/png")
+    except ImportError:
+        # qrcode not installed — return a minimal inline SVG QR placeholder
+        svg = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="220">'
+            '<rect width="200" height="220" fill="white"/>'
+            '<rect x="10" y="10" width="180" height="180" fill="none" stroke="black" stroke-width="4"/>'
+            '<text x="100" y="205" text-anchor="middle" font-size="10" fill="black">'
+            f'Install qrcode[pil] for real QR'
+            '</text>'
+            f'<text x="100" y="110" text-anchor="middle" font-size="9" fill="#444">{target_url}</text>'
+            '</svg>'
+        )
+        return Response(content=svg, media_type="image/svg+xml")
 
 
 # ---------------------------------------------------------------------------
@@ -1164,3 +1403,133 @@ def upload_attachment(
     db.commit()
     db.refresh(attachment)
     return attachment
+
+
+# ---------------------------------------------------------------------------
+# Operating Sheet (Fiche Opératoire) Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{fiche_id}/operating-sheet", response_model=OperatingSheet)
+def get_operating_sheet(
+    fiche_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Retrieve or dynamically generate a simplified, visual operating sheet (fiche opératoire)
+    from an existing procedure.
+    """
+    fiche = _get_fiche_or_404(fiche_id, db)
+    if not _can_see(fiche, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    dept_name = fiche.department.name if fiche.department else "Production Industrielle"
+    dept_code = fiche.department.code if fiche.department else "IND"
+    ws_name = fiche.workstation.name if fiche.workstation else None
+    author_name = fiche.author.full_name if fiche.author else "Expert Méthodes"
+    validator_name = fiche.reviewer.full_name if fiche.reviewer else None
+    att_list = [
+        {"filename": a.filename, "file_path": a.file_path, "file_type": a.file_type}
+        for a in (fiche.attachments or [])
+    ]
+
+    sheet = generate_operating_sheet(
+        fiche_id=fiche.id,
+        title=fiche.title,
+        raw_content=fiche.content,
+        version=fiche.version,
+        department_name=dept_name,
+        department_code=dept_code,
+        workstation_name=ws_name,
+        author_name=author_name,
+        validator_name=validator_name,
+        created_at_dt=fiche.created_at,
+        attachments=att_list,
+    )
+    return sheet
+
+
+@router.post("/{fiche_id}/generate-operating-sheet", response_model=OperatingSheet)
+def generate_operating_sheet_endpoint(
+    fiche_id: int,
+    force: bool = Query(default=True, description="Force re-generation from raw procedure content"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Generate or regenerate a simplified, visual operating sheet from an existing procedure.
+    """
+    fiche = _get_fiche_or_404(fiche_id, db)
+    if not _can_see(fiche, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    raw_content = fiche.content
+    if force:
+        if isinstance(raw_content, str):
+            try:
+                parsed = json.loads(raw_content)
+                parsed.pop("operating_sheet", None)
+                raw_content = parsed
+            except Exception:
+                pass
+        elif isinstance(raw_content, dict):
+            raw_content = dict(raw_content)
+            raw_content.pop("operating_sheet", None)
+
+    dept_name = fiche.department.name if fiche.department else "Production Industrielle"
+    dept_code = fiche.department.code if fiche.department else "IND"
+    ws_name = fiche.workstation.name if fiche.workstation else None
+    author_name = fiche.author.full_name if fiche.author else "Expert Méthodes"
+    validator_name = fiche.reviewer.full_name if fiche.reviewer else None
+    att_list = [
+        {"filename": a.filename, "file_path": a.file_path, "file_type": a.file_type}
+        for a in (fiche.attachments or [])
+    ]
+
+    sheet = generate_operating_sheet(
+        fiche_id=fiche.id,
+        title=fiche.title,
+        raw_content=raw_content,
+        version=fiche.version,
+        department_name=dept_name,
+        department_code=dept_code,
+        workstation_name=ws_name,
+        author_name=author_name,
+        validator_name=validator_name,
+        created_at_dt=fiche.created_at,
+        attachments=att_list,
+    )
+    return sheet
+
+
+@router.put("/{fiche_id}/operating-sheet", response_model=OperatingSheet)
+def save_operating_sheet(
+    fiche_id: int,
+    payload: OperatingSheet,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Save custom edits / overrides to a generated operating sheet.
+    """
+    fiche = _get_fiche_or_404(fiche_id, db)
+    if not _can_see(fiche, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+    if current_user.role not in (UserRole.admin, UserRole.expert, UserRole.engineer, UserRole.technician):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Modification réservée aux rôles techniques.")
+
+    content_dict = {}
+    if isinstance(fiche.content, str):
+        try:
+            content_dict = json.loads(fiche.content)
+        except Exception:
+            content_dict = {"description": fiche.content}
+    elif isinstance(fiche.content, dict):
+        content_dict = dict(fiche.content)
+
+    content_dict["operating_sheet"] = payload.model_dump()
+    fiche.content = json.dumps(content_dict)
+    db.commit()
+    db.refresh(fiche)
+    return payload

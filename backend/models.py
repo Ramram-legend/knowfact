@@ -9,6 +9,11 @@ Tables:
   - fiches
   - fiche_versions
   - attachments
+  - user_points           (gamification — total points + level)
+  - points_transactions   (gamification — full audit log)
+  - user_badges           (gamification — earned badges)
+  - point_config          (gamification — admin-configurable point values)
+  - gamification_notifications (gamification — in-app notifications)
 """
 import enum
 from datetime import datetime, timezone
@@ -280,6 +285,9 @@ class Fiche(Base):
     workstation_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("workstations.id"), nullable=True
     )
+    # KPI / feedback fields
+    useful_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    security_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
     author: Mapped["User"] = relationship(
@@ -407,3 +415,121 @@ class Attachment(Base):
     # Relationships
     fiche: Mapped["Fiche"] = relationship("Fiche", back_populates="attachments")
     uploader: Mapped["User"] = relationship("User", back_populates="attachments")
+
+
+# ---------------------------------------------------------------------------
+# Gamification — UserPoints (aggregate, denormalized for speed)
+# ---------------------------------------------------------------------------
+
+
+class UserPoints(Base):
+    __tablename__ = "user_points"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True
+    )
+    total_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+
+
+# ---------------------------------------------------------------------------
+# Gamification — PointsTransaction (full audit trail)
+# ---------------------------------------------------------------------------
+
+
+class PointsTransaction(Base):
+    __tablename__ = "points_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    points: Mapped[int] = mapped_column(Integer, nullable=False)
+    reference_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    reference_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    awarded_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+    awarded_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[awarded_by_id])
+
+
+# ---------------------------------------------------------------------------
+# Gamification — UserBadge
+# ---------------------------------------------------------------------------
+
+
+class UserBadge(Base):
+    __tablename__ = "user_badges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    badge_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    earned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+
+
+# ---------------------------------------------------------------------------
+# Gamification — PointConfig (admin-configurable point values)
+# ---------------------------------------------------------------------------
+
+
+class PointConfig(Base):
+    __tablename__ = "point_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    action_key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    points: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Gamification — GamificationNotification
+# ---------------------------------------------------------------------------
+
+
+class GamificationNotification(Base):
+    __tablename__ = "gamification_notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # points_earned, level_up, badge_earned, approved, top10
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    reference_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])

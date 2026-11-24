@@ -1,0 +1,9 @@
+Produit       : KnowFact Desktop
+Version       : 1.0.0
+Plateforme    : Windows 10 / Windows 11 (x64)
+Architecture  : Electron + React + FastAPI (PyInstaller) + SQLite
+Date du build : 2026-11-24
+Mode reseau   : 100% autonome / hors ligne (port local 127.0.0.1:8000)
+
+Empreinte SHA-256 (01_Installateur_Windows\KnowFact-Setup-1.0.0.exe) :
+70E9778C6E71E1E73E8AA442B7D652E0BD344B6F78960DBF64585DEF0C4C4A0C

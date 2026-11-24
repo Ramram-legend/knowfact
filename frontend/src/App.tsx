@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { DepartmentProvider } from './contexts/DepartmentContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -17,10 +17,17 @@ import PendingReviews from './pages/PendingReviews'
 import ImprovementReview from './pages/ImprovementReview'
 import DepartmentDashboard from './pages/DepartmentDashboard'
 import DepartmentAdmin from './pages/DepartmentAdmin'
+import Achievements from './pages/Achievements'
+import Leaderboard from './pages/Leaderboard'
+import GamificationAdmin from './pages/GamificationAdmin'
+import OperatingSheetPage from './pages/OperatingSheetPage'
+import AIAssistantPage from './pages/AIAssistantPage'
+
+const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <AuthProvider>
         <DepartmentProvider>
           <Routes>
@@ -42,8 +49,15 @@ export default function App() {
               <Route path="/fiches" element={<FicheList />} />
               <Route path="/fiches/new" element={<FicheCreate />} />
               <Route path="/fiches/:id" element={<FicheDetail />} />
+              <Route path="/fiches/:id/operating-sheet" element={<OperatingSheetPage />} />
               <Route path="/fiches/:id/edit" element={<FicheEdit />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/assistant" element={<AIAssistantPage />} />
+              <Route path="/achievements" element={<Achievements />} />
+              <Route path="/achievements/:userId" element={<Achievements />} />
+              <Route path="/profile" element={<Achievements />} />
+              <Route path="/profile/:userId" element={<Achievements />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/propositions" element={<MyPropositions />} />
               <Route path="/fiches/improvements/pending" element={<PendingReviews />} />
               <Route path="/fiches/improvements/:versionId/review" element={<ImprovementReview />} />
@@ -63,6 +77,14 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/gamification"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <GamificationAdmin />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
             {/* Fallback */}
@@ -70,6 +92,6 @@ export default function App() {
           </Routes>
         </DepartmentProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </Router>
   )
 }

@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
-import { Search as SearchIcon, Filter, FileText, AlertCircle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { Search as SearchIcon, Filter, FileText, AlertCircle, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import { searchApi } from '../api/search'
 import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, FicheType, FicheStatus } from '../types'
@@ -27,6 +27,7 @@ const TYPE_OPTIONS: { value: FicheType | ''; label: string }[] = [
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { departments } = useDepartments()
   const [results, setResults] = useState<Fiche[]>([])
   const [total, setTotal] = useState(0)
@@ -70,11 +71,24 @@ export default function Search() {
     }
   }, [])
 
+  // Debounce: auto-search 400ms after user stops typing
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (!q.trim()) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      doSearch(q, typeFilter, statusFilter, departmentFilter, 1)
+    }, 400)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [q]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (q.trim()) {
       doSearch(q, typeFilter, statusFilter, departmentFilter, page)
     }
-  }, [q, typeFilter, statusFilter, departmentFilter, page, doSearch])
+  }, [typeFilter, statusFilter, departmentFilter, page, doSearch])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -118,6 +132,22 @@ export default function Search() {
           </div>
           <button type="submit" className="btn-primary px-6">
             Search
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams()
+              if (q.trim()) params.set('q', q.trim())
+              if (typeFilter === 'problem_solution') params.set('mode', 'solutions')
+              else if (typeFilter === 'task_post') params.set('mode', 'tasks')
+              else if (typeFilter === 'procedure') params.set('mode', 'procedures')
+              navigate(`/assistant${params.toString() ? `?${params.toString()}` : ''}`)
+            }}
+            className="btn-secondary px-4 border-primary-200 text-primary-700 hover:bg-primary-50"
+            title="Poser cette question à l'Assistant IA"
+          >
+            <Sparkles className="h-4 w-4 text-primary-600" />
+            <span className="hidden sm:inline">Assistant IA</span>
           </button>
         </form>
       </div>

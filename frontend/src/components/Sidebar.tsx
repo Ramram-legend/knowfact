@@ -20,6 +20,9 @@ import {
   Package,
   AlertTriangle,
   Building2,
+  Trophy,
+  Award,
+  Bot,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useDepartments } from '../contexts/DepartmentContext'
@@ -120,6 +123,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <NavItem to="/fiches/new" icon={<PlusCircle className="h-4 w-4" />} label="Nouvelle fiche" />
         )}
         <NavItem to="/search" icon={<Search className="h-4 w-4" />} label="Recherche" />
+        <NavItem to="/assistant" icon={<Bot className="h-4 w-4 text-primary-600" />} label="Assistant IA" />
 
         {/* ─── Section Départements ─── */}
         {departments.length > 0 && (
@@ -207,6 +211,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* ─── Liens de workflow ─── */}
         <div className="mt-4 pt-3 border-t border-gray-100 space-y-0.5">
           <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+            Gamification & Récompenses
+          </p>
+          <NavItem
+            to="/achievements"
+            icon={<Trophy className="h-4 w-4 text-amber-500" />}
+            label="Mes Succès & Points"
+          />
+          <NavItem
+            to="/leaderboard"
+            icon={<Award className="h-4 w-4 text-primary-600" />}
+            label="Classement (Leaderboard)"
+          />
+
+          <p className="px-3 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
             Mes activités
           </p>
           <NavItem
@@ -233,6 +251,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 to="/admin/departements"
                 icon={<Building2 className="h-4 w-4" />}
                 label="Gérer les départements"
+              />
+              <NavItem
+                to="/admin/gamification"
+                icon={<Trophy className="h-4 w-4 text-purple-600" />}
+                label="Gestion Gamification"
               />
             </>
           )}

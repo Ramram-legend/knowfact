@@ -97,3 +97,14 @@ frontend/.env.local
 
 # AI / Antigravity Scratch & Transcripts
 .system_generated/
+
+# Desktop Build & Commercial Binaries (too large for Git — distribute via GitHub Releases)
+frontend/dist-electron/
+dist-electron/
+*.exe
+*.blockmap
+*.dmg
+*.AppImage
+KnowFact_Commercial_v1.0.0.zip
+KnowFact_Commercial_v1.0.0/01_Installateur_Windows/
+KnowFact_Commercial_v1.0.0/02_Version_Portable/KnowFact/

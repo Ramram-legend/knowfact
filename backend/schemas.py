@@ -205,6 +205,8 @@ class FicheOut(OrmBase):
     reviewer_name: Optional[str] = None
     has_pending_improvement: bool = False
     pending_improvement_id: Optional[int] = None
+    useful_count: int = 0
+    security_note: Optional[str] = None
 
     @model_validator(mode="after")
     def parse_content_and_names(self) -> "FicheOut":
@@ -240,6 +242,8 @@ class FicheListOut(OrmBase):
     author: Optional[UserOut] = None
     author_name: str = ""
     reviewer_name: Optional[str] = None
+    useful_count: int = 0
+    security_note: Optional[str] = None
 
     @model_validator(mode="after")
     def parse_content_and_names(self) -> "FicheListOut":
@@ -267,6 +271,7 @@ class PaginatedFiches(BaseModel):
 
 class SearchResult(BaseModel):
     total: int
+    count: int = 0
     results: list[FicheListOut]
 
 
@@ -481,3 +486,121 @@ class DepartmentDetail(OrmBase):
 
 class MessageOut(BaseModel):
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Gamification schemas
+# ---------------------------------------------------------------------------
+
+
+class PointsTransactionOut(OrmBase):
+    id: int
+    user_id: int
+    action: str
+    points: int
+    reference_id: Optional[int] = None
+    reference_type: Optional[str] = None
+    awarded_by_id: Optional[int] = None
+    reason: Optional[str] = None
+    created_at: datetime
+    awarded_by_name: Optional[str] = None
+
+    @model_validator(mode="after")
+    def populate_awarded_by_name(self) -> "PointsTransactionOut":
+        if hasattr(self, "awarded_by") and self.awarded_by:
+            self.awarded_by_name = self.awarded_by.full_name  # type: ignore
+        return self
+
+
+class UserBadgeOut(OrmBase):
+    badge_id: str
+    name: str
+    description: str
+    icon: str
+    color: str
+    earned_at: datetime
+
+
+class UserGamificationProfileOut(BaseModel):
+    user_id: int
+    total_points: int
+    level: int
+    level_name: str
+    level_icon: str
+    progress_pct: int
+    points_to_next: int
+    next_level_name: Optional[str] = None
+    next_level_threshold: Optional[int] = None
+    solutions_shared: int
+    procedures_created: int
+    tasks_contributed: int
+    helpful_contributions: int
+    total_contributions: int
+    is_max_level: bool = False
+    badges: list[UserBadgeOut] = []
+    recent_transactions: list[PointsTransactionOut] = []
+
+
+class LeaderboardEntryOut(BaseModel):
+    rank: int
+    user_id: int
+    full_name: str
+    role: str
+    level: int
+    level_name: str
+    level_icon: str
+    total_points: int
+    badges_count: int
+    initials: str
+
+
+class LeaderboardOut(BaseModel):
+    entries: list[LeaderboardEntryOut]
+    current_user_rank: Optional[int] = None
+    period: str
+    total_users: int
+
+
+class GamificationNotificationOut(OrmBase):
+    id: int
+    type: str
+    message: str
+    reference_id: Optional[int] = None
+    is_read: bool
+    created_at: datetime
+
+
+class NotificationsResponseOut(BaseModel):
+    unread_count: int
+    notifications: list[GamificationNotificationOut]
+
+
+class PointConfigOut(OrmBase):
+    id: int
+    action_key: str
+    points: int
+    label: str
+    description: Optional[str] = None
+    is_active: bool
+    updated_at: datetime
+
+
+class PointConfigUpdate(BaseModel):
+    points: int
+    is_active: Optional[bool] = None
+
+
+class AdminAdjustPayload(BaseModel):
+    user_id: int
+    points: int
+    reason: str
+
+
+class AdminStatsOut(BaseModel):
+    total_users_with_points: int
+    total_points_awarded: int
+    total_transactions: int
+    avg_points_per_user: float
+    top_earners: list[LeaderboardEntryOut]
+    recent_transactions: list[PointsTransactionOut]
+    suspicious_users: list[Any]

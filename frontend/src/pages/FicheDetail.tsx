@@ -5,14 +5,17 @@ import {
   ArrowLeft, Edit3, Send, CheckCircle, XCircle, RotateCcw,
   Eye, Archive, Plus, ChevronDown, ChevronUp, Paperclip,
   Clock, User, AlertCircle, FileText, Sparkles, ExternalLink,
-  ShieldAlert, Lightbulb, Check, Building2,
+  ShieldAlert, Lightbulb, Check, Building2, ThumbsUp, Trophy,
+  FileSpreadsheet, Printer,
 } from 'lucide-react'
+import { gamificationApi } from '../api/gamification'
 import { fichesApi } from '../api/fiches'
 import { useAuth } from '../contexts/AuthContext'
 import { useDepartments } from '../contexts/DepartmentContext'
 import type { Fiche, ImprovementProposalPayload } from '../types'
 import StatusBadge from '../components/StatusBadge'
 import ProposeImprovementModal from '../components/ProposeImprovementModal'
+import OperatingSheetModal from '../components/OperatingSheetModal'
 
 const TYPE_LABELS: Record<string, string> = {
   problem_solution: 'Problem / Solution',
@@ -87,6 +90,12 @@ export default function FicheDetail() {
   const [modal, setModal] = useState<string | null>(null)
   const [showVersions, setShowVersions] = useState(false)
   const [isImproveModalOpen, setIsImproveModalOpen] = useState(false)
+  const [isOperatingSheetModalOpen, setIsOperatingSheetModalOpen] = useState(false)
+  const [evalStatus, setEvalStatus] = useState<{ evaluations_count: number; has_evaluated: boolean }>({
+    evaluations_count: 0,
+    has_evaluated: false,
+  })
+  const [evaluating, setEvaluating] = useState(false)
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -105,7 +114,37 @@ export default function FicheDetail() {
     }
   }, [id])
 
-  useEffect(() => { load() }, [load])
+  const loadEvalStatus = useCallback(async () => {
+    if (!id) return
+    try {
+      const data = await gamificationApi.getFicheEvaluationStatus(Number(id))
+      setEvalStatus(data)
+    } catch {
+      // ignore
+    }
+  }, [id])
+
+  useEffect(() => {
+    load()
+    loadEvalStatus()
+  }, [load, loadEvalStatus])
+
+  const handleEvaluate = async () => {
+    if (!fiche) return
+    try {
+      setEvaluating(true)
+      const res = await gamificationApi.evaluateFiche(fiche.id)
+      setEvalStatus({
+        evaluations_count: res.evaluations_count,
+        has_evaluated: true,
+      })
+      showToast(res.message || 'Solution évaluée positivement (+5 points pour l’auteur) !', 'success')
+    } catch (err: any) {
+      showToast(err?.response?.data?.detail ?? "Impossible d'évaluer la fiche.", 'error')
+    } finally {
+      setEvaluating(false)
+    }
+  }
 
   const doAction = async (action: () => Promise<Fiche>, successMsg: string) => {
     try {
@@ -191,6 +230,13 @@ export default function FicheDetail() {
         isOpen={isImproveModalOpen}
         onClose={() => setIsImproveModalOpen(false)}
         onSubmit={handleProposeImprovement}
+      />
+
+      {/* Operating sheet (Fiche Opératoire) modal */}
+      <OperatingSheetModal
+        ficheId={fiche.id}
+        isOpen={isOperatingSheetModalOpen}
+        onClose={() => setIsOperatingSheetModalOpen(false)}
       />
 
       {/* Comment modals */}
@@ -332,6 +378,16 @@ export default function FicheDetail() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 shrink-0">
+            {/* Bouton Générer une fiche opératoire */}
+            <button
+              onClick={() => setIsOperatingSheetModalOpen(true)}
+              title="Générer une fiche opératoire simplifiée pour le terrain"
+              className="btn-primary flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm font-bold"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Générer une fiche opératoire
+            </button>
+
             {/* Bouton Proposer une amélioration */}
             {canProposeImprovement && (
               <button
@@ -382,6 +438,36 @@ export default function FicheDetail() {
                 Reject
               </button>
             )}
+            {/* Bouton Évaluation Positive (Gamification +5 pts) */}
+            {(fiche.status === 'published' || fiche.status === 'validated') && (
+              <button
+                onClick={handleEvaluate}
+                disabled={evalStatus.has_evaluated || evaluating || fiche.author_id === user?.id}
+                title={
+                  fiche.author_id === user?.id
+                    ? 'Vous ne pouvez pas évaluer votre propre fiche'
+                    : evalStatus.has_evaluated
+                    ? 'Vous avez déjà évalué cette solution'
+                    : 'Attribuer +5 points à l’auteur pour cette solution utile'
+                }
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium border shadow-2xs transition-colors ${
+                  evalStatus.has_evaluated
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : fiche.author_id === user?.id
+                    ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-default'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-primary-700 hover:border-primary-400'
+                }`}
+              >
+                <ThumbsUp className={`h-4 w-4 ${evalStatus.has_evaluated ? 'text-emerald-600 fill-emerald-600' : 'text-gray-500'}`} />
+                <span>{evalStatus.has_evaluated ? 'Solution utile' : 'Utile (+5 pts)'}</span>
+                {evalStatus.evaluations_count > 0 && (
+                  <span className="ml-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold px-1.5 py-0.5">
+                    {evalStatus.evaluations_count}
+                  </span>
+                )}
+              </button>
+            )}
+
             {canPublish && (
               <button onClick={() => setModal('publish')} className="btn-primary">
                 <CheckCircle className="h-4 w-4" />
@@ -507,6 +593,73 @@ export default function FicheDetail() {
 
         {/* Sidebar info */}
         <div className="space-y-5">
+          {/* Fiche Opératoire Card */}
+          <div className="card space-y-3 bg-gradient-to-br from-emerald-50/70 to-teal-50/40 border-emerald-200 shadow-2xs">
+            <div className="flex items-center gap-2 text-sm font-bold text-emerald-950">
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              <span>Fiche Opératoire Terrain (SOP)</span>
+            </div>
+            <p className="text-xs text-emerald-900/80 leading-relaxed">
+              Transformez cette procédure en fiche d'intervention simplifiée : étapes chronologiques, EPI obligatoires, points de contrôle et feuille d'émargement.
+            </p>
+            <div className="pt-1 flex flex-col gap-2">
+              <button
+                onClick={() => setIsOperatingSheetModalOpen(true)}
+                className="btn-primary w-full flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-xs font-bold py-2 text-white shadow-2xs"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                Générer une fiche opératoire
+              </button>
+              <Link
+                to={`/fiches/${fiche.id}/operating-sheet`}
+                className="btn-secondary w-full flex items-center justify-center gap-1.5 text-xs py-2 text-slate-700 hover:bg-white border-slate-300"
+              >
+                <Printer className="h-3.5 w-3.5 text-slate-500" />
+                Imprimer / Format A4
+              </Link>
+            </div>
+          </div>
+
+          {/* Gamification & Contribution Points info */}
+          <div className="card space-y-3 bg-gradient-to-br from-white to-amber-50/30 border-amber-200/70 shadow-2xs">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+              <Trophy className="h-4 w-4 text-amber-500" />
+              <span>Récompenses & Gamification</span>
+            </div>
+            <div className="text-xs text-gray-600 space-y-1.5">
+              <div className="flex justify-between items-center py-1 border-b border-gray-100">
+                <span className="text-gray-500">Points de publication :</span>
+                <span className="font-bold text-primary-700">
+                  {fiche.type === 'procedure' ? '+25 pts' : fiche.type === 'problem_solution' ? '+20 pts' : '+15 pts'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-gray-100">
+                <span className="text-gray-500">Validation expert :</span>
+                <span className="font-semibold text-amber-600">+10 pts bonus</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-gray-500">Évaluations utiles :</span>
+                <span className="font-bold text-emerald-600">
+                  {evalStatus.evaluations_count} ({evalStatus.evaluations_count * 5} pts)
+                </span>
+              </div>
+            </div>
+            <div className="pt-1 border-t border-gray-100 flex items-center justify-between text-xs">
+              <Link
+                to="/leaderboard"
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Classement général →
+              </Link>
+              <Link
+                to="/achievements"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Mes succès
+              </Link>
+            </div>
+          </div>
+
           <div className="card space-y-4">
             {equipment && (
               <div>

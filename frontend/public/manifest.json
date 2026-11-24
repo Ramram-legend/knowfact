@@ -1,0 +1,19 @@
+{
+  "name": "KnowFact – Mémoire Industrielle",
+  "short_name": "KnowFact",
+  "description": "Plateforme de capitalisation et partage des connaissances industrielles",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "fr",
+  "shortcuts": [
+    { "name": "Nouvelle Fiche", "url": "/fiches/new", "description": "Créer une nouvelle fiche" },
+    { "name": "Recherche", "url": "/search", "description": "Rechercher dans la base" }
+  ]
+}

@@ -7,10 +7,11 @@ Start the server with:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
-from database import Base, engine, init_db
-from routes import auth, fiches, search, users, departments
+from database import Base, engine, init_db, UPLOAD_DIR
+from routes import auth, fiches, search, users, departments, stats
+from routes import gamification as gamification_router
+from routes import ai_assistant as ai_assistant_router
 
 # ---------------------------------------------------------------------------
 # Create all database tables on startup & ensure schema migrations
@@ -20,7 +21,7 @@ init_db()
 # ---------------------------------------------------------------------------
 # Create upload directory
 # ---------------------------------------------------------------------------
-Path("uploads").mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # App instance
@@ -45,6 +46,8 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        # Electron production (file:// renderer calling localhost backend)
+        "null",
     ],
     allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
@@ -55,7 +58,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Serve uploaded files statically
 # ---------------------------------------------------------------------------
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # ---------------------------------------------------------------------------
 # Routers
@@ -65,6 +68,9 @@ app.include_router(fiches.router)
 app.include_router(search.router)
 app.include_router(users.router)
 app.include_router(departments.router)
+app.include_router(gamification_router.router)
+app.include_router(stats.router)
+app.include_router(ai_assistant_router.router)
 
 
 # ---------------------------------------------------------------------------
@@ -73,3 +79,16 @@ app.include_router(departments.router)
 @app.get("/health", tags=["health"])
 def health():
     return {"status": "ok", "service": "KnowFact API v1.0.0"}
+
+
+if __name__ == "__main__":
+    import argparse
+    import os
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description="KnowFact API Server")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "8000")))
+    args = parser.parse_args()
+
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
