@@ -117,7 +117,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {/* Liens globaux */}
-        <NavItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" end />
+        <NavItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />} label="Tableau de bord" end />
         <NavItem to="/fiches" icon={<FileText className="h-4 w-4" />} label="Toutes les fiches" />
         {canCreateFiche && (
           <NavItem to="/fiches/new" icon={<PlusCircle className="h-4 w-4" />} label="Nouvelle fiche" />
